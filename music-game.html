@@ -1,0 +1,869 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>🎵 おんがくゲーム 🎵</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; touch-action: none; }
+
+  body {
+    background: linear-gradient(160deg, #1a1060 0%, #2d1b8a 40%, #0d3b8a 100%);
+    min-height: 100vh;
+    overflow: hidden;
+    font-family: 'Arial Rounded MT Bold', 'Hiragino Maru Gothic ProN', sans-serif;
+    user-select: none;
+  }
+
+  /* Stars background */
+  #stars {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0;
+  }
+  .star {
+    position: absolute;
+    border-radius: 50%;
+    background: white;
+    animation: twinkle var(--d) ease-in-out infinite alternate;
+  }
+  @keyframes twinkle { from { opacity: 0.2; transform: scale(0.8); } to { opacity: 1; transform: scale(1.2); } }
+
+  #ui {
+    position: fixed; top: 0; left: 0; width: 100%; z-index: 10;
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 10px 18px;
+  }
+
+  #score-display {
+    font-size: 1.6rem; font-weight: 900; color: #fff;
+    text-shadow: 0 0 10px #ffdd00, 0 2px 4px rgba(0,0,0,0.4);
+    letter-spacing: 1px;
+  }
+
+  #combo-display {
+    font-size: 1.3rem; font-weight: 900; color: #ffe44d;
+    text-shadow: 0 0 10px #ff9900;
+    transition: transform 0.1s;
+  }
+
+  #song-select {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 100;
+    background: linear-gradient(160deg, #1a1060, #2d1b8a, #0d3b8a);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 20px;
+  }
+
+  #song-select h1 {
+    font-size: 2.2rem; color: #fff; text-shadow: 0 0 20px #a78bfa, 0 0 40px #7c3aed;
+    margin-bottom: 10px; text-align: center; line-height: 1.3;
+  }
+
+  .song-btn {
+    width: 280px; padding: 18px 24px;
+    border: none; border-radius: 20px;
+    font-size: 1.3rem; font-weight: 900; cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s;
+    display: flex; align-items: center; gap: 14px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+    -webkit-tap-highlight-color: transparent;
+  }
+  .song-btn:active { transform: scale(0.94); }
+  .song-btn:nth-child(2) { background: linear-gradient(135deg, #ff6b9d, #ff9f43); color: #fff; }
+  .song-btn:nth-child(3) { background: linear-gradient(135deg, #43e97b, #38f9d7); color: #1a5c3a; }
+  .song-btn:nth-child(4) { background: linear-gradient(135deg, #4facfe, #00f2fe); color: #0a3b5c; }
+  .song-btn:nth-child(5) { background: linear-gradient(135deg, #f7971e, #ffd200); color: #5c3a00; }
+
+  .song-btn .icon { font-size: 2rem; }
+  .song-btn .info { text-align: left; }
+  .song-btn .info span { display: block; font-size: 0.75rem; font-weight: 700; opacity: 0.75; margin-top: 2px; }
+
+  #game-canvas-area {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1;
+  }
+
+  canvas { display: block; }
+
+  /* Hit zone visual feedback */
+  #hit-feedback {
+    position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    font-size: 2.5rem; font-weight: 900; pointer-events: none; z-index: 50;
+    text-shadow: 0 0 20px currentColor;
+    opacity: 0; transition: none;
+  }
+
+  #result-screen {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 200;
+    background: rgba(10, 5, 40, 0.92);
+    display: none; flex-direction: column; align-items: center; justify-content: center;
+    gap: 20px;
+  }
+
+  #result-screen h2 { font-size: 2.5rem; color: #ffe44d; text-shadow: 0 0 20px #ff9900; text-align: center; }
+  #result-score { font-size: 1.1rem; font-weight: 700; color: #fff; text-shadow: 0 0 10px #a78bfa; text-align: center; line-height: 2; }
+  #result-grade { font-size: 5rem; }
+
+  .result-btn {
+    padding: 16px 40px; border: none; border-radius: 50px;
+    font-size: 1.3rem; font-weight: 900; cursor: pointer; margin: 5px;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #retry-btn { background: linear-gradient(135deg, #ff6b9d, #ff9f43); color: #fff; box-shadow: 0 4px 15px rgba(255,107,157,0.5); }
+  #menu-btn { background: linear-gradient(135deg, #4facfe, #00f2fe); color: #0a3b5c; box-shadow: 0 4px 15px rgba(79,172,254,0.5); }
+
+  #song-title-display {
+    position: fixed; top: 56px; left: 50%; transform: translateX(-50%);
+    font-size: 1.05rem; color: rgba(255,255,255,0.7); font-weight: 700; z-index: 10;
+    white-space: nowrap;
+  }
+
+  #back-btn {
+    position: fixed; bottom: 22px; right: 18px; z-index: 10;
+    background: rgba(255,255,255,0.15); border: 2px solid rgba(255,255,255,0.3);
+    color: #fff; padding: 8px 16px; border-radius: 20px;
+    font-size: 0.9rem; font-weight: 700; cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    backdrop-filter: blur(6px);
+  }
+</style>
+</head>
+<body>
+
+<div id="stars"></div>
+
+<!-- Song Select -->
+<div id="song-select">
+  <h1>🎵 おんがくゲーム 🎵<br><span style="font-size:1rem;opacity:0.7">◯がおりてきたら タップ！</span></h1>
+  <button class="song-btn" onclick="startSong(0)">
+    <span class="icon">🦋</span>
+    <div class="info">ちょうちょう<span>やさしい</span></div>
+  </button>
+  <button class="song-btn" onclick="startSong(1)">
+    <span class="icon">🐑</span>
+    <div class="info">メリーさんのひつじ<span>ふつう</span></div>
+  </button>
+  <button class="song-btn" onclick="startSong(2)">
+    <span class="icon">🎶</span>
+    <div class="info">よろこびのうた<span>たのしい</span></div>
+  </button>
+  <button class="song-btn" onclick="startSong(3)">
+    <span class="icon">🐝</span>
+    <div class="info">ぶんぶんぶん<span>はやい！</span></div>
+  </button>
+</div>
+
+<!-- Game Area -->
+<div id="game-canvas-area" style="display:none">
+  <canvas id="gameCanvas"></canvas>
+</div>
+
+<!-- UI Overlay -->
+<div id="ui" style="display:none">
+  <div id="score-display">⭐ 0</div>
+  <div id="combo-display"></div>
+</div>
+<div id="song-title-display" style="display:none"></div>
+<button id="back-btn" style="display:none" onclick="goToMenu()">もどる</button>
+
+<!-- Hit feedback -->
+<div id="hit-feedback"></div>
+
+<!-- Result Screen -->
+<div id="result-screen">
+  <div id="result-grade"></div>
+  <h2>おわったよ！</h2>
+  <div id="result-score"></div>
+  <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center">
+    <button class="result-btn" id="retry-btn" onclick="retrySong()">もういちど</button>
+    <button class="result-btn" id="menu-btn" onclick="goToMenu()">もどる</button>
+  </div>
+</div>
+
+<script>
+// ====== AUDIO ENGINE ======
+const AudioCtx = window.AudioContext || window.webkitAudioContext;
+let audioCtx = null;
+
+function getAudioCtx() {
+  if (!audioCtx) audioCtx = new AudioCtx();
+  return audioCtx;
+}
+
+// Note frequencies: ド=C4, レ=D4, ミ=E4, ファ=F4, ソ=G4
+const NOTE_FREQ = { 'ド': 261.63, 'レ': 293.66, 'ミ': 329.63, 'ファ': 349.23, 'ソ': 392.00 };
+const NOTE_KEYS = ['ド', 'レ', 'ミ', 'ファ', 'ソ'];
+
+function playNote(noteName, when = 0, duration = 0.4, volume = 0.5) {
+  const ctx = getAudioCtx();
+  const freq = NOTE_FREQ[noteName];
+  if (!freq) return;
+
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  const filter = ctx.createBiquadFilter();
+
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(freq, ctx.currentTime + when);
+
+  // Add overtone for bell-like sound
+  const osc2 = ctx.createOscillator();
+  const gain2 = ctx.createGain();
+  osc2.type = 'sine';
+  osc2.frequency.setValueAtTime(freq * 2, ctx.currentTime + when);
+  gain2.gain.setValueAtTime(volume * 0.3, ctx.currentTime + when);
+  gain2.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + when + duration);
+  osc2.connect(gain2);
+  gain2.connect(ctx.destination);
+  osc2.start(ctx.currentTime + when);
+  osc2.stop(ctx.currentTime + when + duration);
+
+  filter.type = 'lowpass';
+  filter.frequency.setValueAtTime(2000, ctx.currentTime + when);
+
+  gain.gain.setValueAtTime(volume, ctx.currentTime + when);
+  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + when + duration);
+
+  osc.connect(gain);
+  gain.connect(filter);
+  filter.connect(ctx.destination);
+  osc.start(ctx.currentTime + when);
+  osc.stop(ctx.currentTime + when + duration);
+}
+
+function playSuccess() {
+  const ctx = getAudioCtx();
+  [0, 0.08, 0.16].forEach((t, i) => {
+    const freq = [523.25, 659.25, 783.99][i];
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.frequency.value = freq;
+    o.type = 'sine';
+    g.gain.setValueAtTime(0.3, ctx.currentTime + t);
+    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + t + 0.3);
+    o.connect(g); g.connect(ctx.destination);
+    o.start(ctx.currentTime + t); o.stop(ctx.currentTime + t + 0.3);
+  });
+}
+
+// ====== SONGS ======
+// noteIndex: 0=ド, 1=レ, 2=ミ, 3=ファ, 4=ソ
+// Each entry: [noteIndex, startBeat]
+// 「ー」= previous note lasts 2 beats (no extra circle). Normal note = 1 beat.
+const SONGS = [
+  {
+    // ちょうちょう
+    // 1行目: ソ(1)ミ(1)ミ(2) ファ(1)レ(1)レ(2) ド(1)レ(1)ミ(1)ファ(1) ソ(1)ソ(1)ソ(2)
+    // 2行目: ソ(1)ミ(1)ミ(1)ミ(1) ファ(1)レ(1)レ(1)レ(1) ド(1)ミ(1)ソ(1)ソ(1) ミ(1)ミ(1)ミ(2)
+    // 3行目: レ(1)レ(1)レ(1)レ(1) レ(1)ミ(1)ファ(2) ミ(1)ミ(1)ミ(1)ミ(1) ミ(1)ファ(1)ソ(2)
+    // 4行目: ソ(1)ミ(1)ミ(1)ミ(1) ファ(1)レ(1)レ(2) ド(1)ミ(1)ソ(1)ソ(1) ミ(1)ミ(1)ミ(2)
+    name: 'ちょうちょう 🦋',
+    bpm: 76,
+    notes: [
+      // 1行目: ソ(1)ミ(1)ミ(2) ファ(1)レ(1)レ(2) ド(1)レ(1)ミ(1)ファ(1) ソ(1)ソ(1)ソ(2)
+      [4,0],[2,1],[2,2],
+                  [3,4],[1,5],[1,6],
+                              [0,8],[1,9],[2,10],[3,11],
+                                                 [4,12],[4,13],[4,14],
+      // 2行目: ソ(1)ミ(1)ミ(1)ミ(1) ファ(1)レ(1)レ(1)レ(1) ド(1)ミ(1)ソ(1)ソ(1) ミ(1)ミ(1)ミ(2)
+      [4,16],[2,17],[2,18],[2,19],
+      [3,20],[1,21],[1,22],[1,23],
+      [0,24],[2,25],[4,26],[4,27],
+      [2,28],[2,29],[2,30],
+      // 3行目: レ(1)レ(1)レ(1)レ(1) レ(1)ミ(1)ファ(2) ミ(1)ミ(1)ミ(1)ミ(1) ミ(1)ファ(1)ソ(2)
+      [1,32],[1,33],[1,34],[1,35],
+      [1,36],[2,37],[3,38],
+      [2,40],[2,41],[2,42],[2,43],
+      [2,44],[3,45],[4,46],
+      // 4行目: ソ(1)ミ(1)ミ(1)ミ(1) ファ(1)レ(1)レ(2) ド(1)ミ(1)ソ(1)ソ(1) ミ(1)ミ(1)ミ(2)
+      [4,48],[2,49],[2,50],[2,51],
+      [3,52],[1,53],[1,54],
+      [0,56],[2,57],[4,58],[4,59],
+      [2,60],[2,61],[2,62],
+    ]
+  },
+  {
+    // めりーさんのひつじ
+    // フレーズ1: ミ(1.5)レ(0.5)ド(1)レ(1) ミ(1)ミ(1)ミ(2)
+    //            レ(1)レ(1)レ(2)            ミ(1)ソ(1)ソ(2)
+    // フレーズ2: ミ(1.5)レ(0.5)ド(1)レ(1) ミ(1)ミ(1)ミ(2)
+    //            レ(1)レ(1)ミ(1.5)レ(0.5) ド(2)
+    // ※ ドー = ド が2拍
+    name: 'メリーさんのひつじ 🐑',
+    bpm: 88,
+    notes: [
+      // フレーズ1前半: ミ(1.5)レ(0.5)ド(1)レ(1) ミ(1)ミ(1)ミ(2)
+      [2,0],[1,1.5],[0,2],[1,3],
+      [2,4],[2,5],[2,6],
+      // フレーズ1後半: レ(1)レ(1)レ(2) ミ(1)ソ(1)ソ(2)
+      [1,8],[1,9],[1,10],
+      [2,12],[4,13],[4,14],
+      // フレーズ2前半: ミ(1.5)レ(0.5)ド(1)レ(1) ミ(1)ミ(1)ミ(2)
+      [2,16],[1,17.5],[0,18],[1,19],
+      [2,20],[2,21],[2,22],
+      // フレーズ2後半: レ(1)レ(1)ミ(1.5)レ(0.5) ド(2)
+      // beat24=レ, 25=レ, 26=ミ(1.5), 27.5=レ(0.5), 28=ド(2拍 → 28〜29)
+      [1,24],[1,25],[2,26],[1,27.5],
+      [0,28],
+    ]
+  },
+  {
+    // よろこびのうた（前半）
+    // ミ(1)ミ(1)ファ(1)ソ(1) ソ(1)ファ(1)ミ(1)レ(1) ド(1)ド(1)レ(1)ミ(1) ミ(1.5)レ(0.5)レー(2)
+    // ミ(1)ミ(1)ファ(1)ソ(1) ソ(1)ファ(1)ミ(1)レ(1) ド(1)ド(1)レ(1)ミ(1) レ(1.5)ド(0.5)ドー(2)
+    name: 'よろこびのうた 🎶',
+    bpm: 100,
+    notes: [
+      // ミミファソ ソファミレ
+      [2,0],[2,1],[3,2],[4,3],
+      [4,4],[3,5],[2,6],[1,7],
+      // ドドレミ ミ(1.5)レ(0.5)レー(2)
+      [0,8],[0,9],[1,10],[2,11],
+      [2,12],[1,13.5],[1,14],
+      // ミミファソ ソファミレ
+      [2,16],[2,17],[3,18],[4,19],
+      [4,20],[3,21],[2,22],[1,23],
+      // ドドレミ レ(1.5)ド(0.5)ドー(2)
+      [0,24],[0,25],[1,26],[2,27],
+      [1,28],[0,29.5],[0,30],
+    ]
+  },
+  {
+    // ぶんぶんぶん
+    // ソ(1)ファ(1)ミー(2) レ(0.5)ミ(0.5)ファ(0.5)レ(0.5)ドー(2)
+    // ミ(0.5)ファ(0.5)ソ(0.5)ミ(0.5) レ(0.5)ミ(0.5)ファ(0.5)レ(0.5)
+    // ミ(0.5)ファ(0.5)ソ(0.5)ミ(0.5) レ(0.5)ミ(0.5)ファ(0.5)レ(0.5)
+    // ソ(1)ファ(1)ミー(2) レ(0.5)ミ(0.5)ファ(0.5)レ(0.5)ドー(2)
+    name: 'ぶんぶんぶん 🐝',
+    bpm: 96,
+    notes: [
+      // ソ(1)ファ(1)ミー(2)
+      [4,0],[3,1],[2,2],
+      // レ(0.5)ミ(0.5)ファ(0.5)レ(0.5)ドー(2)
+      [1,4],[2,4.5],[3,5],[1,5.5],[0,6],
+      // ミ(0.5)ファ(0.5)ソ(0.5)ミ(0.5) レ(0.5)ミ(0.5)ファ(0.5)レ(0.5)
+      [2,8],[3,8.5],[4,9],[2,9.5],
+      [1,10],[2,10.5],[3,11],[1,11.5],
+      // ミ(0.5)ファ(0.5)ソ(0.5)ミ(0.5) レ(0.5)ミ(0.5)ファ(0.5)レ(0.5)
+      [2,12],[3,12.5],[4,13],[2,13.5],
+      [1,14],[2,14.5],[3,15],[1,15.5],
+      // ソ(1)ファ(1)ミー(2)
+      [4,16],[3,17],[2,18],
+      // レ(0.5)ミ(0.5)ファ(0.5)レ(0.5)ドー(2)
+      [1,20],[2,20.5],[3,21],[1,21.5],[0,22],
+    ]
+  }
+];
+
+// ====== COLORS ======
+const NOTE_COLORS = [
+  { main: '#ff6b9d', glow: '#ff3d7f', light: '#ffb3d0', dark: '#cc2d5f' }, // ド - pink
+  { main: '#ffa500', glow: '#ff8c00', light: '#ffd080', dark: '#cc6e00' }, // レ - orange
+  { main: '#44e06b', glow: '#22cc50', light: '#a0f0b4', dark: '#1a9940' }, // ミ - green
+  { main: '#4facfe', glow: '#0088ff', light: '#a8d8ff', dark: '#0060cc' }, // ファ - blue
+  { main: '#b975ff', glow: '#9932ff', light: '#dbb3ff', dark: '#7a20cc' }, // ソ - purple
+];
+
+// ====== STARS ======
+const starsEl = document.getElementById('stars');
+for (let i = 0; i < 60; i++) {
+  const s = document.createElement('div');
+  s.className = 'star';
+  const size = Math.random() * 3 + 1;
+  s.style.cssText = `width:${size}px;height:${size}px;left:${Math.random()*100}%;top:${Math.random()*100}%;--d:${1.5+Math.random()*2.5}s;animation-delay:${Math.random()*3}s`;
+  starsEl.appendChild(s);
+}
+
+// ====== GAME STATE ======
+let canvas, ctx;
+let gameRunning = false;
+let currentSong = null;
+let songIndex = 0;
+let startTime = 0;
+let score = 0;
+let combo = 0;
+let maxCombo = 0;
+let fallingNotes = [];
+let particles = [];
+let hitZoneY;
+let columnX = [];
+let circleR;
+let bpm = 90;
+let beatMs;
+let noteQueue = [];
+let noteQueueIdx = 0;
+let lastFrameTime = 0;
+let animId;
+let perfectCount = 0, goodCount = 0, missCount = 0;
+let bottomPulse = [0,0,0,0,0]; // pulse animation per column
+
+// ====== SETUP ======
+function setupCanvas() {
+  canvas = document.getElementById('gameCanvas');
+  ctx = canvas.getContext('2d');
+  resize();
+  window.addEventListener('resize', resize);
+}
+
+function resize() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  hitZoneY = canvas.height - 110;
+  const W = canvas.width;
+  // circleR first: fit 5 circles with gaps in screen width
+  // Each circle needs diameter space, plus gaps between them
+  // Total width = circleR*2 * 5 + gap * 4, but simpler:
+  // divide screen into 5 equal slots, circle fits inside each slot
+  const slots = 5;
+  const slotW = W / slots;
+  circleR = Math.min(slotW * 0.38, 34);
+  // Center of each slot
+  columnX = [0,1,2,3,4].map(i => slotW * i + slotW / 2);
+}
+
+// ====== GAME LOOP ======
+function startSong(idx) {
+  songIndex = idx;
+  currentSong = SONGS[idx];
+  bpm = currentSong.bpm;
+  beatMs = 60000 / bpm;
+
+  document.getElementById('song-select').style.display = 'none';
+  document.getElementById('game-canvas-area').style.display = 'block';
+  document.getElementById('ui').style.display = 'flex';
+  document.getElementById('song-title-display').style.display = 'block';
+  document.getElementById('song-title-display').textContent = currentSong.name;
+  document.getElementById('back-btn').style.display = 'block';
+
+  setupCanvas();
+
+  score = 0; combo = 0; maxCombo = 0;
+  perfectCount = 0; goodCount = 0; missCount = 0;
+  fallingNotes = [];
+  particles = [];
+  noteQueue = [...currentSong.notes];
+  noteQueueIdx = 0;
+  gameEnding = false;
+  updateScoreUI();
+
+  // Input
+  canvas.addEventListener('touchstart', onTouchStart, { passive: true });
+  canvas.addEventListener('mousedown', onMouseDown);
+
+  getAudioCtx(); // wake up
+  gameRunning = true;
+  startTime = performance.now() + 1000; // 1s delay
+  lastFrameTime = performance.now();
+  if (animId) cancelAnimationFrame(animId);
+  animId = requestAnimationFrame(gameLoop);
+}
+
+let gameEnding = false; // prevent double-trigger
+
+function gameLoop(timestamp) {
+  if (!gameRunning) return;
+  const now = performance.now();
+  const elapsed = now - startTime;
+  const dt = now - lastFrameTime;
+  lastFrameTime = now;
+
+  // Spawn notes
+  spawnNotes(elapsed);
+
+  // Update
+  updateNotes(elapsed, dt);
+  updateParticles(dt);
+
+  // Draw
+  drawFrame(elapsed);
+
+  // Check end: all notes spawned AND no active notes remaining AND not already ending
+  const activeNotes = fallingNotes.filter(n => !n.hit && !n.missed);
+  const missedOnScreen = fallingNotes.filter(n => n.missed && n.y <= canvas.height + 50);
+  if (!gameEnding && noteQueueIdx >= noteQueue.length && activeNotes.length === 0 && missedOnScreen.length === 0) {
+    gameEnding = true;
+    gameRunning = false;
+    setTimeout(showResult, 600);
+    return;
+  }
+
+  animId = requestAnimationFrame(gameLoop);
+}
+
+const FALL_DURATION = 2000; // ms to fall from top to hit zone
+
+function spawnNotes(elapsed) {
+  while (noteQueueIdx < noteQueue.length) {
+    const [noteIdx, beat] = noteQueue[noteQueueIdx];
+    const noteTime = beat * beatMs; // when note should be at hit zone
+    const spawnTime = noteTime - FALL_DURATION;
+    if (elapsed >= spawnTime) {
+      fallingNotes.push({
+        noteIdx,
+        targetTime: noteTime,
+        hit: false, missed: false,
+        x: columnX[noteIdx],
+        y: -circleR,
+        scale: 1,
+        opacity: 1,
+        id: Math.random()
+      });
+      noteQueueIdx++;
+    } else break;
+  }
+}
+
+function updateNotes(elapsed, dt) {
+  const MISS_WINDOW = 300;
+  fallingNotes.forEach(n => {
+    if (n.hit || n.missed) return;
+    const progress = (elapsed - (n.targetTime - FALL_DURATION)) / FALL_DURATION;
+    n.y = -circleR + (hitZoneY + circleR) * progress;
+
+    // Miss check
+    if (elapsed > n.targetTime + MISS_WINDOW) {
+      n.missed = true;
+      combo = 0;
+      missCount++;
+      updateScoreUI();
+      showFeedback('ミス...', '#ff4444');
+    }
+  });
+
+  // Remove old
+  fallingNotes = fallingNotes.filter(n => !(n.missed && n.y > canvas.height + 50));
+}
+
+function updateParticles(dt) {
+  particles.forEach(p => {
+    p.x += p.vx * dt * 0.06;
+    p.y += p.vy * dt * 0.06;
+    p.vy += 0.08;
+    p.life -= dt * 0.003;
+    p.scale = p.life;
+  });
+  particles = particles.filter(p => p.life > 0);
+}
+
+// ====== DRAWING ======
+function drawFrame(elapsed) {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Lane lines (subtle)
+  columnX.forEach((x, i) => {
+    const c = NOTE_COLORS[i];
+    ctx.save();
+    ctx.strokeStyle = c.main + '22';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([8, 16]);
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, hitZoneY);
+    ctx.stroke();
+    ctx.restore();
+  });
+
+  // Draw falling notes
+  fallingNotes.forEach(n => {
+    if (n.missed) return;
+    const c = NOTE_COLORS[n.noteIdx];
+    const r = circleR * n.scale;
+
+    // Trail
+    ctx.save();
+    const trailAlpha = 0.18;
+    for (let t = 1; t <= 4; t++) {
+      const ty = n.y - t * r * 0.5;
+      const ta = trailAlpha / t;
+      ctx.globalAlpha = ta;
+      ctx.fillStyle = c.main;
+      ctx.beginPath();
+      ctx.arc(n.x, ty, r * (1 - t * 0.15), 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+
+    // Glow
+    ctx.save();
+    const grd = ctx.createRadialGradient(n.x, n.y, 0, n.x, n.y, r * 1.8);
+    grd.addColorStop(0, c.main + 'aa');
+    grd.addColorStop(1, c.main + '00');
+    ctx.fillStyle = grd;
+    ctx.beginPath();
+    ctx.arc(n.x, n.y, r * 1.8, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    // Main circle
+    ctx.save();
+    ctx.shadowColor = c.glow;
+    ctx.shadowBlur = 18;
+    const grad = ctx.createRadialGradient(n.x - r*0.3, n.y - r*0.3, r*0.1, n.x, n.y, r);
+    grad.addColorStop(0, c.light);
+    grad.addColorStop(0.5, c.main);
+    grad.addColorStop(1, c.dark);
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(n.x, n.y, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    // Note label
+    ctx.save();
+    ctx.fillStyle = '#fff';
+    ctx.font = `bold ${r * 0.7}px Arial Rounded MT Bold, sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.shadowColor = 'rgba(0,0,0,0.4)';
+    ctx.shadowBlur = 4;
+    ctx.fillText(NOTE_KEYS[n.noteIdx], n.x, n.y);
+    ctx.restore();
+  });
+
+  // Hit zone line (glow)
+  ctx.save();
+  ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([4, 8]);
+  ctx.beginPath();
+  ctx.moveTo(0, hitZoneY);
+  ctx.lineTo(canvas.width, hitZoneY);
+  ctx.stroke();
+  ctx.restore();
+
+  // Bottom circles (tap targets)
+  columnX.forEach((x, i) => {
+    const c = NOTE_COLORS[i];
+    const pulse = bottomPulse[i];
+    const r = circleR + pulse * circleR * 0.4;
+
+    // Glow ring
+    ctx.save();
+    ctx.globalAlpha = 0.3 + pulse * 0.3;
+    const grd = ctx.createRadialGradient(x, hitZoneY, r, x, hitZoneY, r * 1.8);
+    grd.addColorStop(0, c.main);
+    grd.addColorStop(1, c.main + '00');
+    ctx.fillStyle = grd;
+    ctx.beginPath();
+    ctx.arc(x, hitZoneY, r * 1.8, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    // Ring border
+    ctx.save();
+    ctx.strokeStyle = c.main;
+    ctx.lineWidth = 3 + pulse * 2;
+    ctx.globalAlpha = 0.6 + pulse * 0.4;
+    ctx.shadowColor = c.glow;
+    ctx.shadowBlur = 10 + pulse * 10;
+    ctx.beginPath();
+    ctx.arc(x, hitZoneY, r, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+
+    // Fill
+    ctx.save();
+    ctx.globalAlpha = 0.25 + pulse * 0.3;
+    const grad = ctx.createRadialGradient(x - r*0.3, hitZoneY - r*0.3, r*0.1, x, hitZoneY, r);
+    grad.addColorStop(0, c.light);
+    grad.addColorStop(1, c.dark);
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(x, hitZoneY, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    // Label
+    ctx.save();
+    ctx.fillStyle = '#fff';
+    ctx.globalAlpha = 0.85 + pulse * 0.15;
+    ctx.font = `bold ${circleR * 0.62}px Arial Rounded MT Bold, sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.shadowColor = c.glow;
+    ctx.shadowBlur = 8;
+    ctx.fillText(NOTE_KEYS[i], x, hitZoneY);
+    ctx.restore();
+
+    // Decay pulse
+    if (bottomPulse[i] > 0) bottomPulse[i] = Math.max(0, bottomPulse[i] - 0.08);
+  });
+
+  // Particles
+  particles.forEach(p => {
+    ctx.save();
+    ctx.globalAlpha = p.life * 0.9;
+    ctx.fillStyle = p.color;
+    ctx.shadowColor = p.color;
+    ctx.shadowBlur = 6;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.r * p.scale, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  });
+}
+
+// ====== INPUT ======
+function onTouchStart(e) {
+  Array.from(e.changedTouches).forEach(t => handleTap(t.clientX, t.clientY));
+}
+function onMouseDown(e) {
+  handleTap(e.clientX, e.clientY);
+}
+
+function handleTap(tapX, tapY) {
+  if (!gameRunning) return;
+  getAudioCtx().resume();
+
+  const elapsed = performance.now() - startTime;
+  const PERFECT = 120, GOOD = 250;
+
+  // Find closest column
+  let bestCol = -1, bestDist = Infinity;
+  columnX.forEach((cx, i) => {
+    const d = Math.abs(tapX - cx);
+    if (d < bestDist) { bestDist = d; bestCol = i; }
+  });
+
+  if (bestCol < 0 || bestDist > circleR * 2.5) return;
+
+  // Find best note for this column
+  let bestNote = null, bestTimeDiff = Infinity;
+  fallingNotes.forEach(n => {
+    if (n.hit || n.missed || n.noteIdx !== bestCol) return;
+    const diff = Math.abs(elapsed - n.targetTime);
+    if (diff < bestTimeDiff) { bestTimeDiff = diff; bestNote = n; }
+  });
+
+  if (!bestNote || bestTimeDiff > GOOD) {
+    // Early/wrong tap - just play note anyway for fun
+    playNote(NOTE_KEYS[bestCol], 0, 0.35, 0.35);
+    bottomPulse[bestCol] = 0.7;
+    return;
+  }
+
+  // HIT!
+  bestNote.hit = true;
+  playNote(NOTE_KEYS[bestCol], 0, 0.45, 0.6);
+  bottomPulse[bestCol] = 1;
+  combo++;
+  if (combo > maxCombo) maxCombo = combo;
+
+  let pts, label, color;
+  if (bestTimeDiff < PERFECT) {
+    pts = 300 + combo * 10;
+    label = '✨ パーフェクト!'; color = '#ffe44d';
+    perfectCount++;
+  } else {
+    pts = 100 + combo * 5;
+    label = '👍 グッド!'; color = '#44e06b';
+    goodCount++;
+  }
+  score += pts;
+  updateScoreUI();
+  showFeedback(label, color);
+
+  // Burst particles
+  const c = NOTE_COLORS[bestCol];
+  burstParticles(bestNote.x, hitZoneY, c.main, 14);
+  // Remove note
+  fallingNotes = fallingNotes.filter(n => n !== bestNote);
+}
+
+function burstParticles(x, y, color, count) {
+  for (let i = 0; i < count; i++) {
+    const angle = (Math.PI * 2 * i / count) + Math.random() * 0.5;
+    const speed = 3 + Math.random() * 5;
+    particles.push({
+      x, y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed - 4,
+      r: 4 + Math.random() * 5,
+      color,
+      life: 0.8 + Math.random() * 0.4,
+      scale: 1
+    });
+  }
+  // Stars
+  for (let i = 0; i < 5; i++) {
+    particles.push({
+      x: x + (Math.random()-0.5)*40,
+      y: y - Math.random()*20,
+      vx: (Math.random()-0.5)*4,
+      vy: -(3+Math.random()*4),
+      r: 6,
+      color: '#ffe44d',
+      life: 1 + Math.random()*0.3,
+      scale: 1
+    });
+  }
+}
+
+// ====== UI ======
+function updateScoreUI() {
+  document.getElementById('score-display').textContent = `⭐ ${score}`;
+  const comboEl = document.getElementById('combo-display');
+  if (combo >= 3) {
+    comboEl.textContent = `🔥 ${combo} コンボ`;
+    comboEl.style.transform = 'scale(1.2)';
+    setTimeout(() => comboEl.style.transform = 'scale(1)', 100);
+  } else {
+    comboEl.textContent = '';
+  }
+}
+
+let fbTimeout;
+function showFeedback(text, color) {
+  const el = document.getElementById('hit-feedback');
+  el.textContent = text;
+  el.style.color = color;
+  el.style.opacity = '1';
+  el.style.fontSize = '2rem';
+  el.style.transform = 'translate(-50%, -80%) scale(1.2)';
+  el.style.transition = 'none';
+  clearTimeout(fbTimeout);
+  fbTimeout = setTimeout(() => {
+    el.style.transition = 'opacity 0.5s, transform 0.5s';
+    el.style.opacity = '0';
+    el.style.transform = 'translate(-50%, -120%) scale(0.8)';
+  }, 600);
+}
+
+function showResult() {
+  gameRunning = false;
+  canvas.removeEventListener('touchstart', onTouchStart);
+  canvas.removeEventListener('mousedown', onMouseDown);
+
+  const total = perfectCount + goodCount + missCount;
+  const acc = total > 0 ? Math.round((perfectCount * 100 + goodCount * 50) / (total * 100) * 100) : 0;
+  let grade, gradeIcon;
+  if (acc >= 90) { grade = 'S'; gradeIcon = '🌟🌟🌟'; }
+  else if (acc >= 75) { grade = 'A'; gradeIcon = '⭐⭐⭐'; }
+  else if (acc >= 55) { grade = 'B'; gradeIcon = '⭐⭐'; }
+  else { grade = 'C'; gradeIcon = '⭐'; }
+
+  document.getElementById('result-grade').textContent = gradeIcon;
+  document.getElementById('result-score').innerHTML =
+    `スコア: <strong style="font-size:1.6rem;color:#ffe44d">${score}</strong><br>さいだいコンボ: ${maxCombo}<br>せいかく度: ${acc}%`;
+  document.getElementById('result-screen').style.display = 'flex';
+}
+
+function retrySong() {
+  document.getElementById('result-screen').style.display = 'none';
+  startSong(songIndex);
+}
+
+function goToMenu() {
+  gameRunning = false;
+  gameEnding = false;
+  if (animId) cancelAnimationFrame(animId);
+  canvas && canvas.removeEventListener('touchstart', onTouchStart);
+  canvas && canvas.removeEventListener('mousedown', onMouseDown);
+  document.getElementById('result-screen').style.display = 'none';
+  document.getElementById('game-canvas-area').style.display = 'none';
+  document.getElementById('ui').style.display = 'none';
+  document.getElementById('song-title-display').style.display = 'none';
+  document.getElementById('back-btn').style.display = 'none';
+  document.getElementById('song-select').style.display = 'flex';
+  document.getElementById('hit-feedback').style.opacity = '0';
+}
+</script>
+</body>
+</html>
